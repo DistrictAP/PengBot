@@ -1,0 +1,18 @@
+HostName:irc.twitch.tv
+Port:6667
+Key:oauth:7zliqx4ermeh2bg9io6elsrde63kwb
+Channel:justalilbitnerdy
+NickName:JustalilBot
+Auto Name Change:false
+Commands:
+!help
+!Xbox
+!Steam
+!IP
+!Justalilbot
+Results:
+#The current commands are !help, !Xbox, !Steam, !ip, & !Justalilbot
+#Justalilbitnerdy's gamertag on Xbox Live is Chinesewaffle 2.
+#Justalilbitnerdy's SteamID is Chinesewaffle2.
+#Justalilbitnerdy is currently playing $Content on $IP.
+#I am Justalilbitnerdy's brainchild, I am open source, and currently available upon request.
