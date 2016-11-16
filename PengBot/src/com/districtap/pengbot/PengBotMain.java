@@ -3,7 +3,6 @@ import org.eclipse.swt.widgets.Display;
 
 public class PengBotMain {
 	static Bot bot;
-	 @SuppressWarnings("unused")
 	 public static void main(String[] args) throws Exception{
 		 Settings.loadBot();
 		  bot = new Bot();
