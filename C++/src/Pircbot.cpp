@@ -113,54 +113,62 @@ void PircBot::start(){
 	}
 
 	//Connect
+	bool connected = false;
+	cout<<"Connecting to \""<<host<<"\""<<endl;
 	if(connect(s,servinfo->ai_addr,servinfo->ai_addrlen) == -1){
 		close(s);
 		perror("Client Connect");
+	}else{
+		connected = true;
 	}
 	
 	//we dont need the server info anymore
 	freeaddrinfo(servinfo);
 
-	//Recieve some data
 	int numbytes;
 	char buf[MAXDATASIZE];
-
-	int count = 0;
-
-	while (1){
-		//declares
-		count++;
-		char msg[100];
-		switch(count){	
-			//send key and nickname to server
+	int msgCount = 0;
+	bool joined = false;
+	//loop to recieve messages
+	while (connected){
+		msgCount++;
+		//declarations
+		char msg[100] = {};	
+		switch(msgCount){
 			case 1:
+				//send key and nickname to server
 				//send key
 				strcat(msg,"PASS ");
 				strcat(msg,key);
+				strcat(msg,"\r\n");
 				sendData(msg);
 				//send nickname
 				memset(&msg[0],0,sizeof(msg));//Clear array
 				strcat(msg,"NICK ");
 				strcat(msg,nick);
+				strcat(msg,"\r\n");
 				sendData(msg);
-			//after 3 recieves send data to server(IRS Protocal)
-			case 3:
-				sendData(nick);
 				break;
-			//Join a channel after connection this time w choose beaker
-			case 4:
-				memset(&msg[0],0,sizeof(msg));//Clear array
-				strcat(msg,"JOIN ");
-				strcat(msg,channel);
-				sendData(msg);
+							break;
 			default:
 				break;
 		}
 		//Recieve & print Data
 		numbytes = recv(s,buf,MAXDATASIZE-1,0);
-		cout<<count<<endl;
 		buf[numbytes] ='\0';
-		cout<<buf<<endl;
+		cout<<buf;
+		
+		//after twitch says hello, join a channel
+		char c[2] = {'>',0};
+		if(charSearch(buf,c)&&!joined){
+			//send join request
+			memset(&msg[0],0,sizeof(msg));//Clear array
+			strcat(msg,"JOIN ");
+			strcat(msg,channel);
+			strcat(msg,"\r\n");
+			sendData(msg);
+			joined = true;
+		}
 		//buf is the data that is recived
 		//Pass buf to the message handler
 		char ping[4] = {'P','I','N','G'};
@@ -172,7 +180,7 @@ void PircBot::start(){
 		if(numbytes==0){
 			cout << "**Connection Closed**";
 			cout << timeNow() << endl;
-			break;
+			connected = false;
 		}
 	}
 }
@@ -228,7 +236,7 @@ char * PircBot::timeNow(){
 bool PircBot::sendData(char *msg){
 	int len = strlen(msg);
 	int bytes_sent = send(s,msg,len,0);
-	cout<<'<'<<msg<<endl;
+	printf("%.*s\n",len-2,msg);
 	return !(bytes_sent==0);
 }
 
