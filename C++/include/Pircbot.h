@@ -7,6 +7,7 @@
 
 #ifndef PircBot_h
 #define PircBot_h
+#include <string>
 
 class PircBot{
 
@@ -17,6 +18,18 @@ public:
 	bool setup;
 	void start();
 	bool charSearch(char* toSearch, char* searchFor);
+	//getters and setters
+	void setHost(std::string h);
+	void setPort(std::string p);
+	void setKey(std::string k);
+	void setChannel(std::string c);
+	void setNick(std::string n);
+	char* getHost();
+	char* getPort();
+	char* getKey();
+	char* getChannel();
+	char* getNick();
+
 private:
 	char* host;
 	char* port;
@@ -24,8 +37,8 @@ private:
 	char* channel;
 	char* nick;
 	int s; //the socket descriptor
-	
-	bool getSettings();
+
+	bool connectToHost();
 	bool isConnected(char *buf);
 	char * timeNow();
 	bool sendData(char *msg);

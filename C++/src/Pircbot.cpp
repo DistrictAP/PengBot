@@ -6,8 +6,6 @@
  * 		Nicholas Anderson
  */
 #include "Pircbot.h"
-#include <iostream>
-#include <fstream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -21,6 +19,8 @@
 #include <signal.h>
 #include <time.h>
 #include <cstring>
+#include <iostream>
+#include <sys/socket.h>
 
 using namespace std;
 
@@ -28,103 +28,32 @@ using namespace std;
 
 //Retrieves the settings from the preformatted settigns file
 //TODO Encript the settings file (due to passwords and whatnot)
-//TODO allow path to use windows \\
+//TODO allow path to use windows
 
-bool PircBot::getSettings(){
-	ifstream settings;
-	settings.open("../Resources/Settings/Settings.txt");
-	//couldn't open file switch to default settings
-	if(!settings.is_open()){
-		settings.open("../Resources/Settings/Defaults.txt");
-		//couldn't open defaults
-		if(!settings.is_open()){
-			cout<<"Unable to open file.\n";
-			return false;
-		}
-	}
-	string line;
-	//First line is hostname
-	getline(settings,line);
-	host = new char[line.substr(9).length()+1];
-	strcpy(host,line.substr(9).c_str());
-	host[line.substr(9).length()-1] = '\0';
-	
-	//Second line is the port
-	getline(settings,line);
-	port = new char[line.substr(5).length()+1];
-	strcpy(port,line.substr(5).c_str());
-	port[line.substr(5).length()-1] = '\0';
 
-	//Third line is the key/Password
-	getline(settings,line);
-	key = new char[line.substr(4).length()+1];
-	strcpy(key,line.substr(4).c_str());
-	key[line.substr(4).length()-1] = '\0';
-
-	//Fourth line is the channel
-	getline(settings,line);
-	channel = new char[line.substr(8).length()+1];
-	strcpy(channel,line.substr(8).c_str());
-	channel[line.substr(8).length()-1] = '\0';
-
-  //Fifth line is the Nickname
-	getline(settings,line);
-	nick = new char[line.substr(9).length()+1];
-	strcpy(nick,line.substr(9).c_str());
-	nick[line.substr(9).length()-1] = '\0';
-
-	settings.close();
-	cout<<port<<'\n'<<channel<<'\n'<<endl;
-	return true;
-}
 
 PircBot::PircBot(){
-	getSettings();
+	host = (char*) malloc (sizeof(char)*100);
+	port = (char*) malloc (sizeof(char)*10);
+	key = (char*) malloc (sizeof(char)*100);
+	channel = (char*) malloc (sizeof(char)*25);
+	nick = (char*) malloc (sizeof(char)*25);
+
 }
 
+//free all memory and close socket
 PircBot::~PircBot(){
+	free(host);
+	free(port);
+	free(key);
+	free(channel);
+	free(nick);
 	close(s);
 }
 
 void PircBot::start(){
 	cout<<"**Starting**\n"<<endl;
-	struct addrinfo hints, *servinfo;
-
-	//Setup run with no errors
-	setup = true;
-
-	//ensure that the servinfo is clear
-	memset(&hints, 0, sizeof hints); //make sure struct is empty
-
-	//setup hints
-	hints.ai_family = AF_UNSPEC; // any address family is acceptable (IPv4/IPv6)
-	hints.ai_socktype = SOCK_STREAM; //Using TCP 	sockets
-
-	//Setup the structs if error print why
-	int res;
-	if((res = getaddrinfo(host,port,&hints,&servinfo)) !=0){
-		setup = false;
-		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(res));
-	}
-	
-	//setup the socket
-	if((s = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)) == -1){
-		perror("client socket");
-	}
-
-	//Connect
-	bool connected = false;
-	cout<<"Connecting to \""<<host<<"\""<<endl;
-	if(connect(s,servinfo->ai_addr,servinfo->ai_addrlen) == -1){
-		close(s);
-		perror("Client Connect");
-	}else{
-		connected = true;
-	}
-	
-	//we dont need the server info anymore
-	freeaddrinfo(servinfo);
-
+	bool connected = connectToHost();
 	int numbytes;
 	char buf[MAXDATASIZE];
 	int msgCount = 0;
@@ -185,7 +114,41 @@ void PircBot::start(){
 	}
 }
 
-bool connect(){
+bool PircBot::connectToHost(){
+	struct addrinfo hints, *servinfo;
+
+	//Setup run with no errors
+	setup = true;
+
+	//ensure that the servinfo is clear
+	memset(&hints, 0, sizeof hints); //make sure struct is empty
+
+	//setup hints
+	hints.ai_family = AF_UNSPEC; // any address family is acceptable (IPv4/IPv6)
+	hints.ai_socktype = SOCK_STREAM; //Using TCP 	sockets
+
+	//Setup the structs if error print why
+	int res;
+	cout<<host<<endl<<port<<endl;
+	if((res = getaddrinfo(host,port,&hints,&servinfo)) !=0){
+		setup = false;
+		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(res));
+	}
+	
+	//setup the socket
+	if((s = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)) == -1){
+		perror("client socket");
+	}
+
+	//Connect
+	cout<<"Connecting to \""<<host<<"\""<<endl;
+	if(connect(s,servinfo->ai_addr,servinfo->ai_addrlen) == -1){
+		close(s);
+		perror("Client Connect");
+		return false;
+	}	
+	//we dont need the server info anymore
+	freeaddrinfo(servinfo);
 	return true;
 }
 
@@ -248,7 +211,7 @@ void PircBot::sendPong(char *buf)
 	//
 	char toSearch[5] = {'P','I','N','G',' '};
 
-	for (int i = 0; i < strlen(buf);i++){
+	for (unsigned int i = 0; i < strlen(buf);i++){
 		//If the active char is equil to the first search item then search toSearch
 		if(buf[i] == toSearch[0]){
 			bool found = true;
@@ -263,7 +226,7 @@ void PircBot::sendPong(char *buf)
 			if(found == true){
 				int count = 0;
 				//Count the chars
-				for (int x = (i+strlen(toSearch)); x < strlen(buf);x++){
+				for (unsigned int x = (i+strlen(toSearch)); x < strlen(buf);x++){
 					count++;
 				}
 
@@ -271,7 +234,7 @@ void PircBot::sendPong(char *buf)
 				char returnHost[count + 5] = {'P','O','N','G',' '};
 				count = 0;
 				//set the hostname data
-				for (int x = (i+strlen(toSearch)); x < strlen(buf);x++){
+				for (unsigned int x = (i+strlen(toSearch)); x < strlen(buf);x++){
 					returnHost[count+5]=buf[x];
 					count++;
 				}
@@ -286,6 +249,35 @@ void PircBot::sendPong(char *buf)
 	}
 }
 
+
 void PircBot::msgHandle(char * buf){	
-		cout<<"Message Recieved";
+	cout<<"Message Recieved";
 }
+
+//getters and setters
+void PircBot::setHost(string h){
+	strcpy(host,h.c_str());
+	host[h.length()-1] = 0;
+}
+void PircBot::setPort(string p){
+	strcpy(port,p.c_str());
+	port[p.length()-1] = 0;
+}
+void PircBot::setKey(string k){
+	strcpy(key,k.c_str());
+	key[k.length()-1] = 0;
+}
+void PircBot::setChannel(string c){
+	strcpy(channel,c.c_str());
+	channel[c.length()-1] = 0;
+}
+void PircBot::setNick(string n){
+	strcpy(nick,n.c_str());
+	nick[n.length()-1] = 0;
+}
+	
+char* PircBot::getHost(){return host;}
+char* PircBot::getPort(){return port;}
+char* PircBot::getKey(){return key;}
+char* PircBot::getChannel(){return channel;}
+char* PircBot::getNick(){return nick;}
