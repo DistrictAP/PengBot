@@ -1,8 +1,8 @@
-#Hi
+!Hi
 Hello $User Welcome to the stream, we are glad to have you!
-#Noticeme
+!Noticeme
 You are noticed
-#talk
-you're AWESOME!
-#list
-#Hello,#Noticeme,#talk,#list
+!Time
+The Current time is: $Time
+!list
+!Hi,!Noticeme,!Time,!list

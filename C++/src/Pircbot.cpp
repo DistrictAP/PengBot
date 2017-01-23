@@ -36,7 +36,6 @@ void PircBot::start(){
 	char buffer[MAXDATASIZE];
 	string buf;
 	Message msg;
-	bool joined;
 	//if connected send pass,nick and join request
 	if(connected){
 		//send key
@@ -95,9 +94,6 @@ void PircBot::start(){
 bool PircBot::connectToHost(){
 	struct addrinfo hints, *servinfo;
 
-	//Setup run with no errors
-	setup = true;
-
 	//ensure that the servinfo is clear
 	memset(&hints, 0, sizeof hints); //make sure struct is empty
 
@@ -105,38 +101,45 @@ bool PircBot::connectToHost(){
 	hints.ai_family = AF_UNSPEC; // any address family is acceptable (IPv4/IPv6)
 	hints.ai_socktype = SOCK_STREAM; //Using TCP 	sockets
 
-	//Setup the structs if error print why
+	//Setup the structs if unsuccessfull print why
 	int res;
 	if((res = getaddrinfo(host.c_str(),port.c_str(),&hints,&servinfo)) !=0){
-		setup = false;
 		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(res));
+		return false;
 	}
 
 	//setup the socket
 	if((s = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)) == -1){
 		perror("client socket");
+		return false;
 	}
 
-	//Connect
+	//Connect to the host
 	if(connect(s,servinfo->ai_addr,servinfo->ai_addrlen) == -1){
 		close(s);
 		perror("Client Connect");
 		return false;
 	}
-	//we dont need the server info anymore
+	//release address information as we don't need it anymore
 	freeaddrinfo(servinfo);
 	return true;
 }
 
 //Returns the current date and time
-char * PircBot::timeNow(){
-	time_t rawtime;
-	struct tm * timeinfo;
-
-	time(&rawtime);
-	timeinfo = localtime(&rawtime);
-
-	return asctime (timeinfo);
+string PircBot::timeNow(){
+	string timeNow;
+	time_t t = time(0);   // get time now
+	struct tm * now = localtime( & t );//turn into a struct with readable information
+	if(now->tm_hour==0){//it is 12am
+		timeNow = to_string(now->tm_hour) + ':' + to_string(now->tm_min) + "am";
+	}else if(now->tm_hour<12){//it is between 12am and noon
+		timeNow = to_string(now->tm_hour) + ':' + to_string(now->tm_min) + "am";
+	}else if(now->tm_hour==12){//it is 12pm
+		timeNow = to_string(now->tm_hour) + ':' + to_string(now->tm_min) + "pm";
+	}else{//it between 12pm and 12am
+		timeNow = to_string(now->tm_hour%12) + ':' + to_string(now->tm_min) + "pm";
+	}
+	return timeNow;
 }
 
 //send some data
@@ -145,50 +148,9 @@ bool PircBot::sendData(string data){
 	int bytes_sent = send(s,data.c_str(),len,0);
 	return !(bytes_sent==0);
 }
-
+//on recieving a PING, send Pong
 void PircBot::onPing(const char *buf){
-	//Get the reply address
-	//loop through buf and find the location of PING
-	//Search through each char in toSearch
-	//
-	char toSearch[5] = {'P','I','N','G',' '};
-
-	for (unsigned int i = 0; i < strlen(buf);i++){
-		//If the active char is equil to the first search item then search toSearch
-		if(buf[i] == toSearch[0]){
-			bool found = true;
-			//search the char array for search field
-			for (int x = 1; x < 4; x++){
-				if (buf[i+x]!=toSearch[x]){
-					found = false;
-				}
-			}
-
-			//if found return true;
-			if(found == true){
-				int count = 0;
-				//Count the chars
-				for (unsigned int x = (i+strlen(toSearch)); x < strlen(buf);x++){
-					count++;
-				}
-
-				//Create the new char array
-				char returnHost[count + 5] = {'P','O','N','G',' '};
-				count = 0;
-				//set the hostname data
-				for (unsigned int x = (i+strlen(toSearch)); x < strlen(buf);x++){
-					returnHost[count+5]=buf[x];
-					count++;
-				}
-
-				//send the pong
-				if (sendData(returnHost)){
-					cout << timeNow() <<"  Ping Pong" << endl;
-				}
-				return;
-			}
-		}
-	}
+	sendData("PONG :tmi.twitch.tv\r\n");
 }
 
 void PircBot::onMessage(Message msg){
@@ -207,10 +169,13 @@ void PircBot::onJoin(string usr){
 void PircBot::onPart(string usr){
 	users.erase(usr);
 }
-
+//replaces the '$'keywords with their respective values
 string PircBot::formatReply(string reply,Message msg){
 	while(reply.find("$User")!=string::npos){
 		reply.replace(reply.find("$User"),5,msg.user);
+	}
+	while(reply.find("$Time")!=string::npos){
+		reply.replace(reply.find("$Time"),5,timeNow());
 	}
 	return reply;
 }
