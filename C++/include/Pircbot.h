@@ -22,7 +22,6 @@ struct Message{
 };
 
 public:
-	bool setup;
 	void start();
 	//getters and setters
 	void setHost(std::string h);
@@ -50,7 +49,7 @@ private:
 
 	bool connectToHost();
 	bool isConnected(char *buf);
-	char * timeNow();
+	std::string timeNow();
 	bool sendData(std::string msg);
 	void onPing(const char *buf);
 	void onMessage(Message msg);
