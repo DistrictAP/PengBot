@@ -7,7 +7,11 @@ using namespace std;
 
 int main(){
 	PircBot bot = PircBot();
-	loadSettings(&bot,"Resources/Settings/Settings.txt");
+	if(!loadSettings(&bot,"Resources/Settings/Settings.txt")){
+		cout<< "unable to load settings, quitting now"<<endl;
+		return 1;
+	}
+	loadCommands(&bot,"Resources/Settings/Commands.txt");
 	bot.start();
 
   return 0;

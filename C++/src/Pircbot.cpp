@@ -30,90 +30,68 @@ using namespace std;
 //TODO Encript the settings file (due to passwords and whatnot)
 //TODO allow path to use windows
 
-
-
-PircBot::PircBot(){
-	host = (char*) malloc (sizeof(char)*100);
-	port = (char*) malloc (sizeof(char)*10);
-	key = (char*) malloc (sizeof(char)*100);
-	channel = (char*) malloc (sizeof(char)*25);
-	nick = (char*) malloc (sizeof(char)*25);
-
-}
-
-//free all memory and close socket
-PircBot::~PircBot(){
-	free(host);
-	free(port);
-	free(key);
-	free(channel);
-	free(nick);
-	close(s);
-}
-
 void PircBot::start(){
-	cout<<"**Starting**\n"<<endl;
 	bool connected = connectToHost();
 	int numbytes;
-	char buf[MAXDATASIZE];
-	int msgCount = 0;
-	bool joined = false;
+	char buffer[MAXDATASIZE];
+	string buf;
+	Message msg;
+	bool joined;
+	//if connected send pass,nick and join request
+	if(connected){
+		//send key
+		sendData("PASS " + key + "\r\n");
+
+		//send nickname
+		sendData("NICK " + nick + "\r\n");
+
+		//send request for some twitch specific stuff
+		sendData("CAP REQ :twitch.tv/membership\r\n");
+
+		//send Join request
+		sendData("JOIN " + channel + "\r\n");
+
+	}
+
 	//loop to recieve messages
 	while (connected){
-		msgCount++;
 		//declarations
-		char msg[100] = {};	
-		switch(msgCount){
-			case 1:
-				//send key and nickname to server
-				//send key
-				strcat(msg,"PASS ");
-				strcat(msg,key);
-				strcat(msg,"\r\n");
-				sendData(msg);
-				//send nickname
-				memset(&msg[0],0,sizeof(msg));//Clear array
-				strcat(msg,"NICK ");
-				strcat(msg,nick);
-				strcat(msg,"\r\n");
-				sendData(msg);
-				break;
-							break;
-			default:
-				break;
-		}
 		//Recieve & print Data
-		numbytes = recv(s,buf,MAXDATASIZE-1,0);
-		buf[numbytes] ='\0';
+		numbytes = recv(s,buffer,MAXDATASIZE-1,0);
+		buf = string(buffer);
 		cout<<buf;
-		
-		//after twitch says hello, join a channel
-		char c[2] = {'>',0};
-		if(charSearch(buf,c)&&!joined){
-			//send join request
-			memset(&msg[0],0,sizeof(msg));//Clear array
-			strcat(msg,"JOIN ");
-			strcat(msg,channel);
-			strcat(msg,"\r\n");
-			sendData(msg);
-			joined = true;
-		}
-		//buf is the data that is recived
+
 		//Pass buf to the message handler
-		char ping[4] = {'P','I','N','G'};
-		if(charSearch(buf,ping)){//if message is ping, respond with pong, or connection will close
-			sendPong(buf);
-		}else{
-			msgHandle(buf);
+		if(buf.find("PING")!=string::npos){//if message is ping, respond with pong, or connection will close
+			onPing(buf.c_str());
+		//the buffer contains a Message, Join or Part
+		}else if(buf.find("PRIVMSG")!=string::npos){
+			int tPos = buf.find(" ")+1;
+			int tLength = buf.find('#',tPos)-tPos-1;
+			int cPos = buf.find('#',tPos+tLength);
+			int cLength = buf.find(':',cPos)-cPos-1;
+			msg.user = buf.substr(1,buf.find('!')-1);
+			msg.type = buf.substr(tPos,tLength);
+			msg.channel = buf.substr(cPos,cLength);
+			msg.message = buf.substr(buf.find(':',cPos+cLength));
+			onMessage(msg);
+		}else if(buf.find("JOIN")!=string::npos){
+			onJoin(buf.substr(1,buf.find('!')));
+		}else if(buf.find("PART")!=string::npos){
+			onPart(buf.substr(1,buf.find('!')));
 		}
+		//if the buffer is now empty
 		if(numbytes==0){
 			cout << "**Connection Closed**";
 			cout << timeNow() << endl;
 			connected = false;
 		}
+		buf.clear();
+		memset(buffer, 0, sizeof buffer);
 	}
 }
 
+//connects to the host using the stored host and port
 bool PircBot::connectToHost(){
 	struct addrinfo hints, *servinfo;
 
@@ -129,59 +107,25 @@ bool PircBot::connectToHost(){
 
 	//Setup the structs if error print why
 	int res;
-	cout<<host<<endl<<port<<endl;
-	if((res = getaddrinfo(host,port,&hints,&servinfo)) !=0){
+	if((res = getaddrinfo(host.c_str(),port.c_str(),&hints,&servinfo)) !=0){
 		setup = false;
 		fprintf(stderr,"getaddrinfo: %s\n",gai_strerror(res));
 	}
-	
+
 	//setup the socket
 	if((s = socket(servinfo->ai_family,servinfo->ai_socktype,servinfo->ai_protocol)) == -1){
 		perror("client socket");
 	}
 
 	//Connect
-	cout<<"Connecting to \""<<host<<"\""<<endl;
 	if(connect(s,servinfo->ai_addr,servinfo->ai_addrlen) == -1){
 		close(s);
 		perror("Client Connect");
 		return false;
-	}	
+	}
 	//we dont need the server info anymore
 	freeaddrinfo(servinfo);
 	return true;
-}
-
-bool PircBot::charSearch(char* toSearch, char* searchTerm){
-	int len = strlen(toSearch);
-	int termLen = strlen(searchTerm); //the length of the query field
-	//if the given string is shorter than the query, return false
-	bool found = true;
-	if(termLen>len){return 0;}
-	for(int i=0;i<len;i++){
-		//if the active char is equal to the first char in the term continue matching
-		if(toSearch[i]==searchTerm[0]){
-			//search the char array for the term
-			for(int j=1; j< termLen;j++){
-				if(toSearch[i+j]!=searchTerm[j]){
-					found = false;
-					break;
-				}
-			}
-		}
-	
-	}
-	return found;
-}
-
-//Returns true if "/MOTD" is found in the input string
-//If /MOTD is present, it is okay to join a channel
-bool PircBot::isConnected(char *buf){
-	char motd[5] = {'/','M','O','T','D'};
-	if(charSearch(buf,motd) == true)
-		return true;
-	else
-		return false;
 }
 
 //Returns the current date and time
@@ -196,17 +140,15 @@ char * PircBot::timeNow(){
 }
 
 //send some data
-bool PircBot::sendData(char *msg){
-	int len = strlen(msg);
-	int bytes_sent = send(s,msg,len,0);
-	printf("%.*s\n",len-2,msg);
+bool PircBot::sendData(string data){
+	int len = data.length();
+	int bytes_sent = send(s,data.c_str(),len,0);
 	return !(bytes_sent==0);
 }
 
-void PircBot::sendPong(char *buf)
-{
+void PircBot::onPing(const char *buf){
 	//Get the reply address
-	//loop through bug and find the location of PING
+	//loop through buf and find the location of PING
 	//Search through each char in toSearch
 	//
 	char toSearch[5] = {'P','I','N','G',' '};
@@ -249,35 +191,55 @@ void PircBot::sendPong(char *buf)
 	}
 }
 
-
-void PircBot::msgHandle(char * buf){	
-	cout<<"Message Recieved";
+void PircBot::onMessage(Message msg){
+	for(auto const entry:commands){
+		if(msg.message.find(entry.first)!=string::npos){
+			string message = "PRIVMSG " + channel + " :"
+				+ formatReply(entry.second,msg) + "\r\n";
+			sendData(message);
+			break;
+		}
+	}
 }
+void PircBot::onJoin(string usr){
+	users.insert(usr);
+}
+void PircBot::onPart(string usr){
+	users.erase(usr);
+}
+
+string PircBot::formatReply(string reply,Message msg){
+	while(reply.find("$User")!=string::npos){
+		reply.replace(reply.find("$User"),5,msg.user);
+	}
+	return reply;
+}
+
 
 //getters and setters
 void PircBot::setHost(string h){
-	strcpy(host,h.c_str());
-	host[h.length()-1] = 0;
+	host = h;
 }
 void PircBot::setPort(string p){
-	strcpy(port,p.c_str());
-	port[p.length()-1] = 0;
+	port = p;
 }
 void PircBot::setKey(string k){
-	strcpy(key,k.c_str());
-	key[k.length()-1] = 0;
+	key = k;
 }
 void PircBot::setChannel(string c){
-	strcpy(channel,c.c_str());
-	channel[c.length()-1] = 0;
+	channel = c;
 }
 void PircBot::setNick(string n){
-	strcpy(nick,n.c_str());
-	nick[n.length()-1] = 0;
+	nick = n;
 }
-	
-char* PircBot::getHost(){return host;}
-char* PircBot::getPort(){return port;}
-char* PircBot::getKey(){return key;}
-char* PircBot::getChannel(){return channel;}
-char* PircBot::getNick(){return nick;}
+void PircBot::setCommands(map<string,string> c){
+	commands = map<string,string>(c);
+}
+string PircBot::getHost(){return host;}
+string PircBot::getPort(){return port;}
+string PircBot::getKey(){return key;}
+string PircBot::getChannel(){return channel;}
+string PircBot::getNick(){return nick;}
+map<string,string> PircBot::getCommands(){
+	return commands;
+}

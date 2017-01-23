@@ -1,4 +1,4 @@
-$Sender will result in the sender of the command's name to be put in place of $Sender
+$User will result in the sender of the command's name to be put in place of $Sender
 $Content will result in whatever text was placed in the <i>Content</i> box in the <i>Home</i> tab to replace $Content
 $IP will result in whatever text was placed in the <i>IP</i> box in the <i>Home</i> tab to replace $IP
 $Time will result in the current time on your computer \"Hr:Min:Sec\" to be put in place of $Time

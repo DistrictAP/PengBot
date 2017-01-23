@@ -1,0 +1,8 @@
+#Hi
+Hello $User Welcome to the stream, we are glad to have you!
+#Noticeme
+You are noticed
+#talk
+you're AWESOME!
+#list
+#Hello,#Noticeme,#talk,#list
