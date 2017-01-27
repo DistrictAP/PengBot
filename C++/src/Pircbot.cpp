@@ -21,6 +21,7 @@
 #include <cstring>
 #include <iostream>
 #include <sys/socket.h>
+#include <thread>
 
 using namespace std;
 
@@ -152,8 +153,16 @@ bool PircBot::sendData(string data){
 void PircBot::onPing(const char *buf){
 	sendData("PONG :tmi.twitch.tv\r\n");
 }
-
 void PircBot::onMessage(Message msg){
+	if(filterMessage(msg.message)){
+		string message = "PRIVMSG " + channel + " :"
+			+ "/timeout "+ msg.user + " 30" + "\r\n";
+		sendData(message);
+
+		message = "PRIVMSG " + channel + " :"
+			+ msg.user + ", we do not appreciate that language here on this channel. You have been banned for 30 seconds\r\n";
+		sendData(message);
+	}
 	for(auto const entry:commands){
 		if(msg.message.find(entry.first)!=string::npos){
 			string message = "PRIVMSG " + channel + " :"
@@ -163,10 +172,18 @@ void PircBot::onMessage(Message msg){
 		}
 	}
 }
-void PircBot::onJoin(string usr){
+void PircBot::onJoin(string id){
+	User usr;
+	usr.id = id;
+	usr.points = 0;
+	usr.strikes = 0;
 	users.insert(usr);
 }
-void PircBot::onPart(string usr){
+void PircBot::onPart(string id){
+	User usr;
+	usr.id = id;
+	usr.points = 0;
+	usr.strikes = 0;
 	users.erase(usr);
 }
 //replaces the '$'keywords with their respective values
@@ -179,7 +196,15 @@ string PircBot::formatReply(string reply,Message msg){
 	}
 	return reply;
 }
-
+//returns true if the message contains a phrase in the filter set.
+bool PircBot::filterMessage(string msg){
+	for(auto const phrase:filter){
+		if(msg.find(phrase)!=string::npos){
+			return true;
+		}
+	}
+	return false;
+}
 
 //getters and setters
 void PircBot::setHost(string h){
@@ -200,6 +225,10 @@ void PircBot::setNick(string n){
 void PircBot::setCommands(map<string,string> c){
 	commands = map<string,string>(c);
 }
+void PircBot::setFilter(set<string> f){
+	filter = f;
+}
+
 string PircBot::getHost(){return host;}
 string PircBot::getPort(){return port;}
 string PircBot::getKey(){return key;}

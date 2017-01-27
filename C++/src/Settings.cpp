@@ -24,14 +24,14 @@ bool loadSettings(PircBot *bot,char const *file){
 			return false;
 		}
 	}
-	
+
 	string line;
 	//First line is hostname
 	getline(settings,line);
 	line.pop_back();
 	host = line.substr(9);
 	(*bot).setHost(host);
-	
+
 	//Second line is the port
 	getline(settings,line);
 	line.pop_back();
@@ -49,7 +49,7 @@ bool loadSettings(PircBot *bot,char const *file){
 	channel = line.substr(8).c_str();
 	(*bot).setChannel(channel);
 
-  //Fifth line is the Nickname
+	//Fifth line is the Nickname
 	getline(settings,line);
 	line.pop_back();
 	nick = line.substr(9).c_str();
@@ -59,7 +59,7 @@ bool loadSettings(PircBot *bot,char const *file){
 	return true;
 }
 
-bool saveSettings(PircBot bot,char const *file){	
+bool saveSettings(PircBot bot,char const *file){
 	ofstream settings;
 	settings.open(file);
 	if(!settings.is_open()){
@@ -77,7 +77,7 @@ bool saveSettings(PircBot bot,char const *file){
 
 bool loadCommands(PircBot *bot, char const *file){
 	map<string,string> commands;
-	
+
 	ifstream settings;
 	settings.open(file);
 	if(!settings.is_open()){
@@ -92,4 +92,22 @@ bool loadCommands(PircBot *bot, char const *file){
 	bot->setCommands(commands);
 
 	return true;
-} 
+}
+
+bool loadFilter(PircBot *bot, char const *file){
+	set<string> filter;
+
+	ifstream settings;
+	settings.open(file);
+	if(!settings.is_open()){
+		return false;
+	}
+	string phrase;
+	//While there are two lines left, continue storing them in the map.
+	while(getline(settings,phrase)){
+		filter.insert(phrase);
+	}
+	bot->setFilter(filter);
+
+	return true;
+}

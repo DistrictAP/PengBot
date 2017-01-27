@@ -12,6 +12,8 @@
 	bool loadSettings(PircBot *bot,char const *file);
 	//saves the settings from the given bot into the settings file
 	bool saveSettings(PircBot bot,char const *file);
-	//loads the list of commands into the bot
+	//loads the list of commands into the given bot.
 	bool loadCommands(PircBot *bot,char const *file);
+	//loads the list of filter words into the given bot.
+	bool loadFilter(PircBot *bot, char const *file);
 #endif /* Settings_h */

@@ -12,6 +12,7 @@ int main(){
 		return 1;
 	}
 	loadCommands(&bot,"Resources/Settings/Commands.txt");
+	loadFilter(&bot,"Resources/Settings/Filter.txt");
 	bot.start();
 
   return 0;
