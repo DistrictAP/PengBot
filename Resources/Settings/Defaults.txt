@@ -1,0 +1,10 @@
+HostName:irc.twitch.tv
+Port:6667
+Key:oauth:
+Channel:JustalilBot
+NickName:MyBot
+Auto Name Change:false
+Commands:
+!help
+Results:
+#the current commands are !help

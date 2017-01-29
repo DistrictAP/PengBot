@@ -1,0 +1,10 @@
+Strikes:3
+$User please don't use that language in this chat. If you would like a list of bad word please use !FilterList
+$User Should you use innapropriate language again, you will be banned
+$wr You have been banned from this channel you may send a pm if you feel this is a mistake
+bitch
+fuck
+shit
+ass
+cunt
+dick

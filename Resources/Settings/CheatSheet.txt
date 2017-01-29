@@ -1,0 +1,6 @@
+$User will result in the sender of the command's name to be put in place of $Sender
+$Content will result in whatever text was placed in the <i>Content</i> box in the <i>Home</i> tab to replace $Content
+$IP will result in whatever text was placed in the <i>IP</i> box in the <i>Home</i> tab to replace $IP
+$Time will result in the current time on your computer \"Hr:Min:Sec\" to be put in place of $Time
+$Filter will result in a list of all the filter words that have been specified.
+$wr will add "/w $User " in order to make the message a whisper to that user.

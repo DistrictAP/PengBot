@@ -1,0 +1,5 @@
+HostName:irc.twitch.tv
+Port:6667
+Key:oauth:v4b508oqr9zlleqwv9e5r2b7uobxf6
+Channel:#whitewatergaming
+NickName:whitewatergaming
