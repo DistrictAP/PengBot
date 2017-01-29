@@ -25,7 +25,7 @@
 
 using namespace std;
 
-#define MAXDATASIZE 100
+#define MAXDATASIZE 2000
 
 //Retrieves the settings from the preformatted settigns file
 //TODO Encript the settings file (due to passwords and whatnot)
@@ -51,6 +51,8 @@ void PircBot::start(){
 		//send Join request
 		sendData("JOIN " + channel + "\r\n");
 
+		//request /commands for /w and /ban
+		sendData("CAP REQ :twitch.tv/commands\r\n");
 	}
 
 	//loop to recieve messages
@@ -153,25 +155,41 @@ bool PircBot::sendData(string data){
 void PircBot::onPing(const char *buf){
 	sendData("PONG :tmi.twitch.tv\r\n");
 }
+//Handle messages once recieved.
 void PircBot::onMessage(Message msg){
+	string message;
 	if(filterMessage(msg.message)){
-		string message = "PRIVMSG " + channel + " :"
-			+ "/timeout "+ msg.user + " 30" + "\r\n";
-		sendData(message);
-
-		message = "PRIVMSG " + channel + " :"
-			+ msg.user + ", we do not appreciate that language here on this channel. You have been banned for 30 seconds\r\n";
-		sendData(message);
+		int strike = onStrike(msg.user);
+		if(strike==maxStrikes){//user has used up all of their strikes
+			//ban the offender
+			message = "PRIVMSG " + channel + " :" + "/ban "+ msg.user + "\r\n";
+			sendData(message);
+			//Public message explaining the ban
+			message = "PRIVMSG " + channel + " :" + formatMessage(warnings[strike-1] + "\r\n",msg);
+			sendData(message);
+			return;
+		}else{
+			cout<<endl<<"Strikes:"<<strike<<endl<<warnings[0]<<endl;
+			//timeout the user for 30 seconds
+			message = "PRIVMSG " + channel + " :" + "/timeout "+ msg.user + " 30" + "\r\n";
+			sendData(message);		//Public message explaining the ban
+			//send a message as to why the timeout occured
+			message = "PRIVMSG " + channel + " :" + formatMessage(warnings[strike-1] + "\r\n",msg);
+			sendData(message);
+		}
+		return;
 	}
+	//search to see if a command was used
 	for(auto const entry:commands){
 		if(msg.message.find(entry.first)!=string::npos){
 			string message = "PRIVMSG " + channel + " :"
-				+ formatReply(entry.second,msg) + "\r\n";
+				+ formatMessage(entry.second,msg) + "\r\n";
 			sendData(message);
 			break;
 		}
 	}
 }
+
 void PircBot::onJoin(string id){
 	User usr;
 	usr.id = id;
@@ -187,12 +205,18 @@ void PircBot::onPart(string id){
 	users.erase(usr);
 }
 //replaces the '$'keywords with their respective values
-string PircBot::formatReply(string reply,Message msg){
+string PircBot::formatMessage(string reply,Message msg){
 	while(reply.find("$User")!=string::npos){
 		reply.replace(reply.find("$User"),5,msg.user);
 	}
 	while(reply.find("$Time")!=string::npos){
 		reply.replace(reply.find("$Time"),5,timeNow());
+	}
+	while(reply.find("$Filter")!=string::npos){
+		reply.replace(reply.find("$Filter"),7,filterList);
+	}
+	while(reply.find("$wr")!=string::npos){
+		reply.replace(reply.find("$wr"),3,"/w "+msg.user + " ");
 	}
 	return reply;
 }
@@ -205,6 +229,24 @@ bool PircBot::filterMessage(string msg){
 	}
 	return false;
 }
+//returns true if this is the third strike for a user.
+int PircBot::onStrike(string id){
+	User usr;
+	usr.id = id;
+	set<User>::iterator iter = users.find(usr);
+	if (iter != users.end()){
+		User tmp = *iter;
+		usr.strikes = tmp.strikes+1;
+		usr.points = tmp.points;
+		users.erase(tmp);
+		users.insert(usr);
+	}else{
+		onJoin(id);
+		return onStrike(id);
+	}
+	return 1;
+}
+
 
 //getters and setters
 void PircBot::setHost(string h){
@@ -225,7 +267,13 @@ void PircBot::setNick(string n){
 void PircBot::setCommands(map<string,string> c){
 	commands = map<string,string>(c);
 }
-void PircBot::setFilter(set<string> f){
+void PircBot::setFilter(int strikes,string *w,set<string> f){
+	maxStrikes=strikes;
+	warnings = new string[strikes];
+	copy(w,w+strikes,warnings);
+	for(auto const phrase:f){
+		filterList.append(phrase+", ");
+	}
 	filter = f;
 }
 

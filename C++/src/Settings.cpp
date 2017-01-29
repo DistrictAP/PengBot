@@ -96,18 +96,30 @@ bool loadCommands(PircBot *bot, char const *file){
 
 bool loadFilter(PircBot *bot, char const *file){
 	set<string> filter;
+	int strikes = 0;
+	string phrase;
 
 	ifstream settings;
 	settings.open(file);
+
 	if(!settings.is_open()){
 		return false;
 	}
-	string phrase;
+	//get number of strikes
+	if(getline(settings,phrase)){
+		//get the charachters after : and turn that into the number of strikes
+		strikes = stoi(phrase.substr(phrase.find(':')+1));
+	}
+	string warnings[strikes];
+	for(int i=0;i<strikes&&getline(settings,phrase);i++){
+		warnings[i] = phrase;
+	}
+
 	//While there are two lines left, continue storing them in the map.
 	while(getline(settings,phrase)){
 		filter.insert(phrase);
 	}
-	bot->setFilter(filter);
+	bot->setFilter(strikes,warnings,filter);
 
 	return true;
 }
