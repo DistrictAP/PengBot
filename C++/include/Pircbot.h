@@ -69,6 +69,7 @@ private:
 	bool sendData(std::string msg);
 	void onPing(const char *buf);
 	void onMessage(Message msg);
+	void onWhisper(Message msg);
 	void onJoin(std::string usr);
 	void onPart(std::string usr);
 	std::string formatMessage(std::string reply,Message msg);

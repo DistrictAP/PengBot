@@ -22,6 +22,7 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <thread>
+#include <algorithm>
 
 using namespace std;
 
@@ -64,10 +65,9 @@ void PircBot::start(){
 		cout<<buf;
 
 		//Pass buf to the message handler
-		if(buf.find("PING")!=string::npos){//if message is ping, respond with pong, or connection will close
-			onPing(buf.c_str());
+
 		//the buffer contains a Message, Join or Part
-		}else if(buf.find("PRIVMSG")!=string::npos){
+		if(buf.find("PRIVMSG")!=string::npos){
 			int tPos = buf.find(" ")+1;
 			int tLength = buf.find('#',tPos)-tPos-1;
 			int cPos = buf.find('#',tPos+tLength);
@@ -77,10 +77,18 @@ void PircBot::start(){
 			msg.channel = buf.substr(cPos,cLength);
 			msg.message = buf.substr(buf.find(':',cPos+cLength));
 			onMessage(msg);
+		}else if(buf.find("WHISPER")!=string::npos){
+			msg.user = buf.substr(1,buf.find('!')-1);
+			msg.type = "WHISPER";
+			msg.channel = channel;
+			msg.message = buf.substr(buf.rfind(':',1));
+			onWhisper(msg);
 		}else if(buf.find("JOIN")!=string::npos){
 			onJoin(buf.substr(1,buf.find('!')));
 		}else if(buf.find("PART")!=string::npos){
 			onPart(buf.substr(1,buf.find('!')));
+		}else if(buf.find("PING")!=string::npos){//if message is ping, respond with pong, or connection will close
+			onPing(buf.c_str());
 		}
 		//if the buffer is now empty
 		if(numbytes==0){
@@ -162,14 +170,13 @@ void PircBot::onMessage(Message msg){
 		int strike = onStrike(msg.user);
 		if(strike==maxStrikes){//user has used up all of their strikes
 			//ban the offender
-			message = "PRIVMSG " + channel + " :" + "/ban "+ msg.user + "\r\n";
+			message = "PRIVMSG " + msg.channel + " :" + "/ban "+ msg.user + "\r\n";
 			sendData(message);
 			//Public message explaining the ban
-			message = "PRIVMSG " + channel + " :" + formatMessage(warnings[strike-1] + "\r\n",msg);
+			message = "PRIVMSG " + msg.channel + " :" + formatMessage(warnings[strike-1] + "\r\n",msg);
 			sendData(message);
 			return;
 		}else{
-			cout<<endl<<"Strikes:"<<strike<<endl<<warnings[0]<<endl;
 			//timeout the user for 30 seconds
 			message = "PRIVMSG " + channel + " :" + "/timeout "+ msg.user + " 30" + "\r\n";
 			sendData(message);		//Public message explaining the ban
@@ -182,14 +189,25 @@ void PircBot::onMessage(Message msg){
 	//search to see if a command was used
 	for(auto const entry:commands){
 		if(msg.message.find(entry.first)!=string::npos){
-			string message = "PRIVMSG " + channel + " :"
+			string message = "PRIVMSG " + msg.channel + " :"
 				+ formatMessage(entry.second,msg) + "\r\n";
 			sendData(message);
 			break;
 		}
 	}
 }
-
+void PircBot::onWhisper(Message msg){
+	string message;
+	//search to see if a command was used
+	for(auto const entry:commands){
+		if(msg.message.find(entry.first)!=string::npos){
+			string message = "PRIVMSG " + msg.channel + " :"
+				+ formatMessage("$wr"+entry.second,msg) + "\r\n";
+			sendData(message);
+			break;
+		}
+	}
+}
 void PircBot::onJoin(string id){
 	User usr;
 	usr.id = id;
@@ -215,15 +233,19 @@ string PircBot::formatMessage(string reply,Message msg){
 	while(reply.find("$Filter")!=string::npos){
 		reply.replace(reply.find("$Filter"),7,filterList);
 	}
-	while(reply.find("$wr")!=string::npos){
-		reply.replace(reply.find("$wr"),3,"/w "+msg.user + " ");
+	while(reply.find("$wr")!=string::npos){//whisper reply
+		reply.replace(reply.find("$wr"),3,".w "+msg.user + " ");
 	}
 	return reply;
 }
 //returns true if the message contains a phrase in the filter set.
 bool PircBot::filterMessage(string msg){
+	//make message lowercase
 	for(auto const phrase:filter){
-		if(msg.find(phrase)!=string::npos){
+		auto it = search(msg.begin(),msg.end(),phrase.begin(),phrase.end(),
+		[](char ch1, char ch2) {return std::toupper(ch1) == toupper(ch2);}
+		);
+		if(it != msg.end()){
 			return true;
 		}
 	}
@@ -244,9 +266,8 @@ int PircBot::onStrike(string id){
 		onJoin(id);
 		return onStrike(id);
 	}
-	return 1;
+	return usr.strikes;
 }
-
 
 //getters and setters
 void PircBot::setHost(string h){
