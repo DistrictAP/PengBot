@@ -1,2 +1,3 @@
 C++/Resources/Settings/Settings.txt
-C++/bin/*
+C++/bin/Pircbot
+c++/bin/.*
