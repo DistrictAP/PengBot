@@ -1,8 +1,0 @@
-!Hi
-Hello $User Welcome to the stream, we are glad to have you!
-!Time
-The Current time is: $Time
-!FilterList
-$wr here is a list of banned words: $Filter
-!list
-!Hi,!Time,!FilterList,!list
