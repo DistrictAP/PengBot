@@ -33,7 +33,7 @@ using namespace std;
 //TODO allow path to use windows
 
 void PircBot::start(){
-	bool connected = connectToHost();
+	connected = connectToHost();
 	int numbytes;
 	char buffer[MAXDATASIZE];
 	string buf;
@@ -62,10 +62,8 @@ void PircBot::start(){
 		//Recieve & print Data
 		numbytes = recv(s,buffer,MAXDATASIZE-1,0);
 		buf = string(buffer);
-		cout<<buf;
-
 		//Pass buf to the message handler
-
+		buf.pop_back();
 		//the buffer contains a Message, Join or Part
 		if(buf.find("PRIVMSG")!=string::npos){
 			int tPos = buf.find(" ")+1;
@@ -75,7 +73,7 @@ void PircBot::start(){
 			msg.user = buf.substr(1,buf.find('!')-1);
 			msg.type = buf.substr(tPos,tLength);
 			msg.channel = buf.substr(cPos,cLength);
-			msg.message = buf.substr(buf.find(':',cPos+cLength));
+			msg.message = buf.substr(buf.find(':',cPos+cLength)+1);
 			onMessage(msg);
 		}else if(buf.find("WHISPER")!=string::npos){
 			msg.user = buf.substr(1,buf.find('!')-1);
@@ -92,15 +90,19 @@ void PircBot::start(){
 		}
 		//if the buffer is now empty
 		if(numbytes==0){
-			cout << "**Connection Closed**";
-			cout << timeNow() << endl;
+
 			connected = false;
 		}
 		buf.clear();
 		memset(buffer, 0, sizeof buffer);
 	}
+	cout << "**Connection Closed**";
+	cout << timeNow() << endl;
 }
-
+void PircBot::stop(){
+	shutdown(s, SHUT_RDWR);
+	connected = false;
+}
 //connects to the host using the stored host and port
 bool PircBot::connectToHost(){
 	struct addrinfo hints, *servinfo;
@@ -195,6 +197,9 @@ void PircBot::onMessage(Message msg){
 			break;
 		}
 	}
+	if(msg.message.find("!vote")!=string::npos){
+		onVote(msg);
+	}
 }
 void PircBot::onWhisper(Message msg){
 	string message;
@@ -240,16 +245,80 @@ string PircBot::formatMessage(string reply,Message msg){
 }
 //returns true if the message contains a phrase in the filter set.
 bool PircBot::filterMessage(string msg){
-	//make message lowercase
+	//match case regardless of case
 	for(auto const phrase:filter){
 		auto it = search(msg.begin(),msg.end(),phrase.begin(),phrase.end(),
 		[](char ch1, char ch2) {return std::toupper(ch1) == toupper(ch2);}
 		);
 		if(it != msg.end()){
+			cout<<msg<<"="<<phrase<<endl;
 			return true;
 		}
 	}
 	return false;
+}
+//creates and starts a poll.
+bool PircBot::createPoll(Poll p){
+	string msg;
+	if(poll.isOpen){
+		return false;
+	}
+	poll = p;
+
+	msg = "PRIVMSG " + channel + " :";
+	msg.append("A poll has been created: ");
+	msg.append(p.query);
+	msg.append(" The options are as follows: ");
+	for(auto const entry:poll.options){
+		msg.append(entry.first+",");
+	}
+	msg.append("Use !vote \"option\" (without quotes) to enter");
+	msg.append("\r\n");
+	sendData(msg);
+	poll.isOpen = true;
+	return true;
+}
+//closes the current poll revealing the results
+pair<string,int> PircBot::closePoll(){
+	poll.isOpen = false;
+	string msg = "PRIVMSG " + channel + " :The poll is now closed: "+
+		"The winner is: ";
+	pair<string,int> top = pair<string,int>("",0);
+	for(auto const entry:poll.options){
+		if(entry.second>top.second){
+			top = entry;
+		}
+	}
+	msg.append(top.first+" with " + to_string(top.second) + " votes.\r\n");
+	sendData(msg);
+	return top;
+}
+
+//adds a vote into the current poll should one exist
+void PircBot::onVote(Message msg){
+	std::string vote = msg.message.substr(6);
+	std::map<string,int>::iterator option;
+	vote.resize(vote.size()-1);
+	if(poll.isOpen){
+		option = poll.options.find(vote);
+		//vote is invalid
+		if(option==poll.options.end()){//vote is invalid
+			string message = "PRIVMSG " + msg.channel + " :"+msg.user+ ", that is not a valid option." + "\r\n";
+			sendData(message);
+		}else if(poll.voters.insert(msg.user).second==false){//user already voted
+			string message = "PRIVMSG " + msg.channel + " :"+msg.user+ ", your vote has already been counted." + "\r\n";
+			sendData(message);
+		}else{
+			option->second = option->second+1;
+			poll.totalVotes++;
+			poll.voters.insert(msg.user);
+			string message = "PRIVMSG " + msg.channel + " :"+msg.user+ ", your vote has been counted." + "\r\n";
+			sendData(message);
+		}
+	}else{
+		string message = "PRIVMSG " + msg.channel + " :"+msg.user+ ", there are no polls open currently." + "\r\n";
+		sendData(message);
+	}
 }
 //returns true if this is the third strike for a user.
 int PircBot::onStrike(string id){
@@ -268,7 +337,6 @@ int PircBot::onStrike(string id){
 	}
 	return usr.strikes;
 }
-
 //getters and setters
 void PircBot::setHost(string h){
 	host = h;
@@ -297,7 +365,6 @@ void PircBot::setFilter(int strikes,string *w,set<string> f){
 	}
 	filter = f;
 }
-
 string PircBot::getHost(){return host;}
 string PircBot::getPort(){return port;}
 string PircBot::getKey(){return key;}

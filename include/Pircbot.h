@@ -13,6 +13,7 @@
 #include <set>
 
 class PircBot{
+public:
 	struct Message{
 		std::string user;
 		std::string type;
@@ -24,6 +25,7 @@ class PircBot{
 		std::string id;
 		int points;
 		int strikes;
+		bool hasVoted;
 		bool operator<(const User &usr) const{
 			return id < usr.id;
 		}
@@ -31,8 +33,20 @@ class PircBot{
 			return id.compare(usr.id)==0;
 		}
 	};
-public:
+	struct Poll{
+		bool isOpen;
+		std::string query;
+		std::map<std::string,int> options;
+		std::set<std::string> voters;
+		int totalVotes;
+	};
+
 	void start();
+	bool sendData(std::string msg);
+	void stop();
+	bool createPoll(Poll p);
+	std::pair<std::string,int> closePoll();
+
 	//getters and setters
 	void setHost(std::string h);
 	void setPort(std::string p);
@@ -49,6 +63,7 @@ public:
 	std::string getNick();
 	std::map<std::string,std::string> getCommands();
 private:
+	bool connected;
 	int s; //the socket descriptor
 	int maxStrikes;//max amount of strikes before a ban
 	std::string host;//host to connect to
@@ -61,12 +76,13 @@ private:
 	std::map<std::string,std::string> commands;//maps !comands with replys
 	std::set<User> users;//set containing all users which are currently listening
 	std::set<std::string> filter;//set containing all the filtered words
+	Poll poll;
 
+	void onVote(Message msg);
 	int onStrike(std::string id);
 	bool connectToHost();
 	bool isConnected(char *buf);
 	std::string timeNow();
-	bool sendData(std::string msg);
 	void onPing(const char *buf);
 	void onMessage(Message msg);
 	void onWhisper(Message msg);
