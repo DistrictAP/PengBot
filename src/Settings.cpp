@@ -6,7 +6,7 @@
 
 using namespace std;
 
-bool loadSettings(PircBot *bot,char const *file){
+bool loadSettings(PircBot *bot,string file){
 	string host;
 	string port;
 	string key;
@@ -59,7 +59,7 @@ bool loadSettings(PircBot *bot,char const *file){
 	return true;
 }
 
-bool saveSettings(PircBot bot,char const *file){
+bool saveSettings(PircBot bot,std::string file){
 	ofstream settings;
 	settings.open(file);
 	if(!settings.is_open()){
@@ -75,7 +75,7 @@ bool saveSettings(PircBot bot,char const *file){
 	return true;
 }
 
-bool loadCommands(PircBot *bot, char const *file){
+bool loadCommands(PircBot *bot,std::string file){
 	map<string,string> commands;
 
 	ifstream settings;
@@ -94,7 +94,7 @@ bool loadCommands(PircBot *bot, char const *file){
 	return true;
 }
 
-bool loadFilter(PircBot *bot, char const *file){
+bool loadFilter(PircBot *bot,std::string file){
 	set<string> filter;
 	int strikes = 0;
 	string phrase;

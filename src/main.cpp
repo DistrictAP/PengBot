@@ -11,14 +11,19 @@ bool findInString(std::string msg,std::string query);
 void makePoll(std::string info,PircBot *bot);
 void printHelp();
 
-int main(){
+int main(int argc, char* argv[]){
+	if(argc!=2){
+		std::cout<<"Usage: "<<argv[0]<<" [settings directory]\n";
+		return 0;
+	}
+	std::string dir = argv[1];
 	PircBot bot = PircBot();
-	if(!loadSettings(&bot,"Resources/Settings/Settings.txt")){
-		std::cout<< "unable to load settings, quitting now\n";
+	if(!loadSettings(&bot,dir+"/Settings.txt")){
+		std::cout<< "unable to load settings. Incorrect settings folder?\n";
 		return 1;
 	}
-	loadCommands(&bot,"Resources/Settings/Commands.txt");
-	loadFilter(&bot,"Resources/Settings/Filter.txt");
+	loadCommands(&bot,dir+"/Commands.txt");
+	loadFilter(&bot,dir+"/Filter.txt");
 	std::thread input (getInput,&bot);
 	bot.start();
 
